@@ -76,6 +76,7 @@ def admin_record_create(request):
 
 @login_required()    
 def admin_record_search(request):
+    import pdb; pdb.set_trace()
     search_string = request.GET['search_string']
     records = IndivoRecord.search(search_string)
 

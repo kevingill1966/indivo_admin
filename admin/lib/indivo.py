@@ -7,7 +7,7 @@ from django.conf import settings
 from lxml import etree
 from django.template.loader import get_template
 from django.template import Context
-from indivo_client_py.lib.client import IndivoClient
+from indivo_client_py.client import IndivoClient
 
 DOC_NS = 'http://indivo.org/vocab/xml/documents#'
 
@@ -18,7 +18,11 @@ class IndivoManager(object):
 
     def get_indivo_client(self):
         key, secret = settings.INDIVO_OAUTH_CREDENTIALS
-        client = IndivoClient(key, secret, settings.INDIVO_SERVER_LOCATION)
+        consumer_params = {'consumer_key': key, 'consumer_secret': secret}
+        server_params = {'api_base': settings.INDIVO_SERVER_BASE, 'authorization_base': settings.INDIVO_SERVER_LOCATION}
+        client = IndivoClient(server_params, consumer_params, resource_token=None)
+
+        #client = IndivoClient(key, secret, settings.INDIVO_SERVER_LOCATION)
         return client
 
     def make_api_call(self, client_func_name, *args, **kwargs):
@@ -26,23 +30,14 @@ class IndivoManager(object):
         if not client_func:
             raise ValueError('Invalid API Call: %s'%(client_func_name))
         
-        resp = client_func(*args, **kwargs)
+        resp, response_data = client_func(*args, **kwargs)
         try:
             resp = resp.response
         except AttributeError:
             pass
 
-        response_code = resp['response_status']
+        response_code = resp['status']
 
-        try:
-            response_data = resp['response_data']
-        except KeyError:
-            try:
-                response_data = resp['prd']
-            except KeyError:
-                response_data = ''
-        
-        # if the response was XML, return an etree
         try:
             response_data = etree.XML(response_data)
         except Exception, e:

@@ -37,6 +37,10 @@ class IndivoManager(object):
             pass
 
         response_code = resp['status']
+        try:
+            response_code = int(response_code)
+        except:
+            pass
 
         try:
             response_data = etree.XML(response_data)
@@ -86,7 +90,7 @@ class IndivoRecord(IndivoModel):
     @classmethod
     def search(cls, search_string):
         matches = []
-        status, data = cls.manager.make_api_call('record_search', parameters={'label':search_string})
+        status, data = cls.manager.make_api_call('record_search', **{'label':search_string})
         if status == 200:
             for record in data.findall('Record'):
                 matches.append(cls.from_etree(record))
@@ -168,7 +172,7 @@ class IndivoRecord(IndivoModel):
             raise ValueError("Bad response from Indivo: [%s] %s"%(status, data))
 
     def _get_fullshares(self):
-        status, data = self.manager.make_api_call('get_shares',
+        status, data = self.manager.make_api_call('record_shares',
                                                   record_id=self.record_id)
         if status == 200:
             shares = {}
@@ -182,7 +186,7 @@ class IndivoRecord(IndivoModel):
             raise ValueError("Bad response from Indivo: [%s] %s"%(status, data))
 
     def _get_carenetshares(self):
-        status, data = self.manager.make_api_call('get_record_carenets', 
+        status, data = self.manager.make_api_call('carenet_list', 
                                                   record_id=self.record_id)
         if status == 200:
             carenet_names = dict([(c.get('id'), c.get('name')) for c in data.findall('Carenet')])
@@ -192,7 +196,7 @@ class IndivoRecord(IndivoModel):
 
         carenet_accounts = {}
         for c_id in carenet_names.keys():
-            status, data = self.manager.make_api_call('get_carenet_accounts',
+            status, data = self.manager.make_api_call('carenet_account_list',
                                                       carenet_id=c_id)
             if status == 200:
                 for account in data.findall('CarenetAccount'):
@@ -210,7 +214,7 @@ class IndivoRecord(IndivoModel):
         return ret
 
     def _get_owner(self):
-        status, data = self.manager.make_api_call('get_record_owner',
+        status, data = self.manager.make_api_call('record_get_owner',
                                                   record_id=self.record_id)
         if status == 200:
             account_id = data.get('id')
@@ -220,9 +224,12 @@ class IndivoRecord(IndivoModel):
             raise ValueError("Bad response from Indivo: [%s] %s"%(status, data))
 
     def _get_contact(self):
-        status, data = self.manager.make_api_call('read_special_document', 
+#       status, data = self.manager.make_api_call('read_special_document', 
+#                                                 record_id=self.record_id,
+#                                                 special_document='contact')
+        status, data = self.manager.make_api_call('read_demographics', 
                                                   record_id=self.record_id,
-                                                  special_document='contact')
+                                            body={"response_format": "application/xml"})
         if status == 200:
             return IndivoContact.from_etree(data)
         
@@ -325,8 +332,8 @@ class IndivoAccount(IndivoModel):
             self._get_fullshares()
 
     def _get_fullshares(self):
-        status, data = self.manager.make_api_call('get_account_records',
-                                                  account_id=self.account_id)
+        status, data = self.manager.make_api_call('record_list',
+                                                  account_email=self.account_id)
         if status == 200:
             carenetmap = {}
             carenetshared = set([])
@@ -359,7 +366,7 @@ class IndivoAccount(IndivoModel):
             raise ValueError("Bad response from Indivo: [%s] %s"%(status, data))
  
     def _get_account_info(self):
-        status, data = self.manager.make_api_call('account_info', account_id=self.account_id)
+        status, data = self.manager.make_api_call('account_info', account_email=self.account_id)
         if status == 200:
             self._update_from_etree(data)
             return True
@@ -397,37 +404,32 @@ class IndivoAccount(IndivoModel):
 
 class IndivoContact(object):
     """ Represent an Indivo Contact Document.
-
-    XML Looks like:
-
-    <Contact xmlns="http://indivo.org/vocab/xml/documents#">
-      <name>
-        <fullName>Sebastian Rockwell Cotour</fullName>
-        <givenName>Sebastian</givenName>
-        <familyName>Cotour</familyName>
-      </name>
-      <email type="personal">
-        <emailAddress>scotour@hotmail.com</emailAddress>
-      </email>
-      <email type="work">
-        <emailAddress>sebastian.cotour@childrens.harvard.edu</emailAddress>
-      </email>
-      <address type="home">
-        <streetAddress>15 Waterhill Ct.</streetAddress>
-        <postalCode>53326</postalCode>
-        <locality>New Brinswick</locality>
-        <region>Montana</region>
-        <country>US</country>
-        <timeZone>-7GMT</timeZone>
-      </address>
-      <location type="home">
-        <latitude>47N</latitude>
-        <longitude>110W</longitude>
-      </location>
-      <phoneNumber type="home">5212532532</phoneNumber>
-      <phoneNumber type="work">6217233734</phoneNumber>
-      <instantMessengerName protocol="aim">scotour</instantMessengerName>
-    </Contact>
+    <Models>
+        <Model documentId="a1860d9b-6efd-47ed-b9a3-58c096b2a89e" name="Demographics">
+        <Field name="bday">1965-08-09</Field>
+        <Field name="email">william.robinson@example.com</Field>
+        <Field name="ethnicity"/>
+        <Field name="gender">male</Field>
+        <Field name="preferred_language">EN</Field>
+        <Field name="race"/>
+        <Field name="name_given">William</Field>
+        <Field name="name_prefix"/>
+        <Field name="name_suffix"/>
+        <Field name="name_family">Robinson</Field>
+        <Field name="name_middle"/>
+        <Field name="tel_2_type">c</Field>
+        <Field name="tel_2_preferred_p">true</Field>
+        <Field name="tel_2_number">800-979-6786</Field>
+        <Field name="adr_region">OK</Field>
+        <Field name="adr_country">USA</Field>
+        <Field name="adr_postalcode">74008</Field>
+        <Field name="adr_city">Bixby</Field>
+        <Field name="adr_street">23 Church Rd</Field>
+        <Field name="tel_1_type">h</Field>
+        <Field name="tel_1_preferred_p">true</Field>
+        <Field name="tel_1_number">800-870-3011</Field>
+    </Model>
+    </Models>
 
     """
     
@@ -469,14 +471,42 @@ class IndivoContact(object):
         
     @classmethod
     def from_etree(cls, xml_etree):
+        d = {
+                'name_given': '',
+                'name_middle': '',
+                'name_family': '',
+                'email': '',
+                'adr_street': '',
+                'adr_region': '',
+                'adr_postalcode': '',
+                'adr_country': '',
+                'tel_1_number': '',
+                'tel_2_number': '',
+        } 
+
+        model = xml_etree.getchildren()[0]
+        for field in xml_etree.getchildren()[0].getchildren():
+            if field.tag == 'Field' and 'name' in field.attrib:
+                d[field.attrib['name']] = field.text
         contact = cls()
-        contact.full_name = cls.find_text_anywhere(xml_etree, 'fullName')
-        contact.given_name = cls.find_text_anywhere(xml_etree, 'givenName')
-        contact.family_name = cls.find_text_anywhere(xml_etree, 'familyName')
-        contact.email = cls.find_text_anywhere(xml_etree, 'emailAddress')
-        contact.street_address  = cls.find_text_anywhere(xml_etree, 'streetAddress')
-        contact.region = cls.find_text_anywhere(xml_etree, 'region')
-        contact.postal_code = cls.find_text_anywhere(xml_etree, 'postalCode')
-        contact.country = cls.find_text_anywhere(xml_etree, 'country')
-        contact.phone_numbers = cls.findalltext(xml_etree, '{%s}phoneNumber'%cls.ns)
+        contact.full_name = ' '.join([x for x in [d['name_given'], d['name_middle'], d['name_family']] if x])
+        contact.given_name = d['name_given']
+        contact.family_name = d['name_family']
+        contact.email = d['email']
+        contact.street_address  = d['adr_street']
+        contact.region = d['adr_region']
+        contact.postal_code = d['adr_postalcode']
+        contact.country = d['adr_country']
+        contact.phone_numbers = [x for x in [d['tel_1_number'], d['tel_2_number']] if x]
+
+#       contact.full_name = cls.find_text_anywhere(xml_etree, 'fullName')
+#       contact.given_name = cls.find_text_anywhere(xml_etree, 'givenName')
+#       contact.family_name = cls.find_text_anywhere(xml_etree, 'familyName')
+#       contact.email = cls.find_text_anywhere(xml_etree, 'emailAddress')
+#       contact.street_address  = cls.find_text_anywhere(xml_etree, 'streetAddress')
+#       contact.region = cls.find_text_anywhere(xml_etree, 'region')
+#       contact.postal_code = cls.find_text_anywhere(xml_etree, 'postalCode')
+#       contact.country = cls.find_text_anywhere(xml_etree, 'country')
+#       contact.phone_numbers = cls.findalltext(xml_etree, '{%s}phoneNumber'%cls.ns)
+
         return contact

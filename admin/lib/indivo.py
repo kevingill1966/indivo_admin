@@ -30,6 +30,7 @@ class IndivoManager(object):
         if not client_func:
             raise ValueError('Invalid API Call: %s'%(client_func_name))
         
+        print "MAKE API CALL", client_func_name, args, kwargs
         resp, response_data = client_func(*args, **kwargs)
         try:
             resp = resp.response
@@ -47,6 +48,7 @@ class IndivoManager(object):
         except Exception, e:
             pass
 
+        print "MAKE API CALL, response_code=", response_code, "response_data=", response_data
         return (response_code, response_data)
 
 class IndivoModel(object):
@@ -90,7 +92,7 @@ class IndivoRecord(IndivoModel):
     @classmethod
     def search(cls, search_string):
         matches = []
-        status, data = cls.manager.make_api_call('record_search', **{'label':search_string})
+        status, data = cls.manager.make_api_call('record_search', body={'label':search_string})
         if status == 200:
             for record in data.findall('Record'):
                 matches.append(cls.from_etree(record))
@@ -285,7 +287,7 @@ class IndivoAccount(IndivoModel):
             return []
         else:
             req_data = {'fullname':full_name, 'contact_email':contact_email}
-            status, data = cls.manager.make_api_call('account_search', parameters=req_data)
+            status, data = cls.manager.make_api_call('account_search', body=req_data)
             if status == 200:
                 return [cls.from_etree(a) for a in data.findall('Account')]
             else:
